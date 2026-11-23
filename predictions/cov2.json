@@ -1,0 +1,75 @@
+{
+  "coverage": 0.2,
+  "coef": [
+    0.07681504706607598,
+    0.8909469239045994,
+    -0.325021249306446
+  ],
+  "a_own": 0.9837685250529288,
+  "error_model": {
+    "seen": 480,
+    "missing": 17,
+    "invented": 6,
+    "clients": 30,
+    "p_miss": 0.035416666666666666,
+    "lam": 0.2
+  },
+  "configs": {
+    "cov2_benign": {
+      "sim": {
+        "acc_fed": 0.6517786311751576,
+        "useful_share": 0.5533663911535024,
+        "false_share": 0.0,
+        "disputed": null
+      },
+      "real_thinned": {
+        "acc_fed": 0.6411070299741065,
+        "useful_share": 0.5382287669833329,
+        "false_share": 0.0,
+        "disputed": null
+      }
+    },
+    "cov2_a1_f2": {
+      "sim": {
+        "acc_fed": 0.5487153319920894,
+        "useful_share": 0.500182575675697,
+        "false_share": 0.24972347872705306,
+        "disputed": 0
+      },
+      "real_thinned": {
+        "acc_fed": 0.5397548361544575,
+        "useful_share": 0.48562426688784016,
+        "false_share": 0.25005407390778894,
+        "disputed": 0
+      }
+    },
+    "cov2_trust_a1_f2": {
+      "sim": {
+        "acc_fed": 0.49512615947478095,
+        "useful_share": 0.3674859372078921,
+        "false_share": 0.09161786415433298,
+        "disputed": 0.649
+      },
+      "real_thinned": {
+        "acc_fed": 0.48869881833224593,
+        "useful_share": 0.357409543100598,
+        "false_share": 0.09572624348493063,
+        "disputed": 0.632
+      }
+    },
+    "cov2_trustfb_a1_f2": {
+      "sim": {
+        "acc_fed": 0.5375057532183263,
+        "useful_share": 0.44786518160359756,
+        "false_share": 0.1493963930595117,
+        "disputed": 0.642
+      },
+      "real_thinned": {
+        "acc_fed": 0.5296415680951178,
+        "useful_share": 0.43645687234571245,
+        "false_share": 0.1540821054301486,
+        "disputed": 0.63
+      }
+    }
+  }
+}

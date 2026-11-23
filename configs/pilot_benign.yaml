@@ -1,0 +1,16 @@
+# Pilot, step 1: no attacker. Does the federation help at all?
+world:
+  n_codes: 40
+  n_procedures: 8
+  overrides_per_site: 6      # codes whose procedure differs at a site type
+clients:
+  site_types: [coastal, coastal, mountain, mountain, urban]
+  coverage: 0.4              # share of codes each client sees locally
+  records_per_code: 2
+attack:
+  kind: none
+llm:
+  backend: hf
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  batch_size: 8
+  load_in_4bit: false

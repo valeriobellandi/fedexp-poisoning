@@ -1,0 +1,28 @@
+# Tenth round, multiple rounds: attack every round; clients upload only first-hand rules (provenance).
+world:
+  n_codes: 40
+  n_procedures: 8
+  overrides_per_site: 6
+clients:
+  site_types: [coastal, coastal, mountain, mountain, urban, coastal]
+  coverage: 0.4
+  records_per_code: 2
+  upload_scope: general
+rounds:
+  n: 3
+  upload: own
+server:
+  aggregator: per_code
+  show_client_site: true
+  report_order: shuffled
+attack:
+  kind: a1
+  malicious: [1, 5]
+  n_targets: 10
+  claim_scope: global
+  rounds: all
+llm:
+  backend: hf
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  batch_size: 8
+  load_in_4bit: false

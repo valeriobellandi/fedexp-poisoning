@@ -1,0 +1,21 @@
+# Per-code aggregator; the attacker claims its rules for all sites.
+world:
+  n_codes: 40
+  n_procedures: 8
+  overrides_per_site: 6
+clients:
+  site_types: [coastal, coastal, mountain, mountain, urban]
+  coverage: 0.4
+  records_per_code: 2
+server:
+  aggregator: per_code
+attack:
+  kind: a1
+  malicious: [1]
+  n_targets: 10
+  claim_scope: global
+llm:
+  backend: hf
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  batch_size: 8
+  load_in_4bit: false

@@ -1,0 +1,7 @@
+pyyaml
+pytest
+# Only for the "hf" backend (already installed on Kaggle):
+# torch
+# transformers
+# accelerate
+# bitsandbytes   # only with load_in_4bit: true
