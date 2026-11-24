@@ -365,6 +365,18 @@ def claims(lines: list[str], min_cases: int = 0, min_share: float = 0.0) -> dict
     return out
 
 
+def confident(lines: list[str], min_cases: int, min_share: float) -> list[str]:
+    """The rules that report at least min_cases patients and a majority share
+    of at least min_share: the same test a claim must pass to take part in a
+    clash. Rules without counts are dropped."""
+    out = []
+    for ln in lines:
+        r = parse_rule(ln)
+        if r and r[4] and r[3] and r[4] >= min_cases and r[3] / r[4] >= min_share:
+            out.append(ln)
+    return out
+
+
 def disputes(uploads: dict[int, list[str]], sites: dict[int, str], threshold: int,
              min_cases: int = 0, min_share: float = 0.0) -> set[frozenset[int]]:
     said = {i: claims(v, min_cases, min_share) for i, v in uploads.items()}
@@ -474,13 +486,16 @@ def run_heart(cfg: dict, seed: int, llm) -> dict:
         eligible = sorted(pid for pid, (_, _, n) in pooled.items() if n >= acfg.get("min_patients", 10))
         targets = sorted(rng.sample(eligible, acfg["n_targets"]))
         claim_n = acfg.get("claimed_cases", 12)
+        # Majority count claimed; below the evidence threshold the false
+        # rule cannot take part in a clash (weak-evidence evasion).
+        claim_k = acfg.get("claimed_majority", claim_n)
         for pid in targets:
             disease, share, n = pooled[pid]
             poisons.append({"profile": pid, "bad": not disease, "pooled_share": share,
                             "pooled_patients": n})
         for i in malicious:
             kept = [ln for ln in uploads[i] if not ((r := parse_rule(ln)) and r[0] in targets)]
-            injected = [format_rule(p["profile"], ALL, p["bad"], claim_n, claim_n) for p in poisons]
+            injected = [format_rule(p["profile"], ALL, p["bad"], claim_k, claim_n) for p in poisons]
             lines = kept + injected
             rng.shuffle(lines)
             uploads[i] = lines
@@ -493,6 +508,12 @@ def run_heart(cfg: dict, seed: int, llm) -> dict:
                       scfg.get("min_share", 0.0)) if threshold else set())
     kept_for = {i: recipient_uploads(uploads, sites, i, pairs, scfg.get("dispute_policy", "exclude"))
                 if threshold else uploads for i in benign}
+    if scfg.get("library_evidence"):
+        # Only rules that could take part in a clash enter the library, so
+        # a false rule either carries enough evidence to be disputed or is
+        # left out.
+        kept_for = {i: {j: confident(v, scfg.get("min_cases", 0), scfg.get("min_share", 0.0))
+                        for j, v in k.items()} for i, k in kept_for.items()}
     key_of = {i: json.dumps(sorted(k.items())) for i, k in kept_for.items()}
     libs: dict[str, list[str]] = {}
     for i in benign:

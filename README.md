@@ -65,6 +65,7 @@ mkdir -p tables
 PYTHONPATH=src python -m fedexp.tables results tables          # all model-run tables
 PYTHONPATH=src python -m fedexp.ablation results tables 200 1000   # ablations (about 4 min)
 PYTHONPATH=src python -m fedexp.checkpred results predictions/cov2.json tables/cov2_check.tex
+PYTHONPATH=src python -m fedexp.ci results tables               # confidence intervals over seeds
 PYTHONPATH=src python -m fedexp.summarize results               # text summary per configuration
 ```
 

@@ -50,3 +50,21 @@ def test_runs_score_the_same_clients_and_evidence_cuts_spurious_disputes():
     spur_ev = sum(len(run_once(cfg("heart_ev_benign"), s, MockLLM())["disputes"])
                   for s in range(3))
     assert spur_ev < spur_plain
+
+
+def test_weak_claims_evade_disputes_but_not_the_library_threshold():
+    weak = run_once(cfg("heart_evweak_a1"), 0, MockLLM())
+    assert weak["disputes"] == []            # 3 of 4 cannot take part in a clash
+    assert weak["attack"]["survival"] > 0    # ... and reaches the library
+    lib = run_once(cfg("heart_evlibweak_a1"), 0, MockLLM())
+    assert lib["attack"]["survival"] == 0    # below the threshold: left out
+    strong = run_once(cfg("heart_evlib_a1"), 0, MockLLM())
+    assert strong["disputes"]                # 12 of 12 is disputed
+
+
+def test_confident_keeps_only_rules_with_enough_evidence():
+    from fedexp.heart import confident, format_rule, ALL
+    p = sorted(heart.PROFILES)
+    rules = [format_rule(p[0], ALL, True, 6, 7), format_rule(p[1], ALL, True, 3, 4),
+             format_rule(p[2], ALL, False, 5, 8), format_rule(p[3], ALL, True)]
+    assert confident(rules, 5, 0.75) == rules[:1]

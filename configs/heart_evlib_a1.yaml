@@ -1,0 +1,24 @@
+# Revision, real data: filtered disputes and the same evidence threshold for entering the library.
+domain: heart
+clients:
+  hospitals: [cleveland, cleveland, cleveland, hungary, hungary, va, switzerland]
+  train_share: 0.7
+  not_evaluated: [1, 2]     # the attackers' seats, also in runs without attack
+  upload_scope: general
+server:
+  dispute_threshold: 1
+  dispute_policy: fallback
+  min_cases: 5            # a claim takes part in a clash only with 5+ patients
+  min_share: 0.75         # ... and a majority of at least 75%
+  library_evidence: true  # only rules that could clash enter the library
+attack:
+  kind: a1
+  malicious: [1, 2]
+  n_targets: 8
+  min_patients: 10
+  claimed_cases: 12
+llm:
+  backend: hf
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  batch_size: 8
+  load_in_4bit: false

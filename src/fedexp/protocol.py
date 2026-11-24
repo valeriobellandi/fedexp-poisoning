@@ -42,6 +42,86 @@ def generalise(lines: list[str]) -> list[str]:
     return out
 
 
+def rescope(uploads: dict[int, list[str]],
+            client_sites: dict[int, str]) -> dict[int, list[str]]:
+    """Server-side scope check, before the merge. No model call.
+
+    A rule claimed for all sites whose (code, procedure, condition) is
+    reported only by clients of one site type is rewritten as a rule for
+    that site type: one site type's experience is not evidence about the
+    others. Honest overrides shared as general rules go back to their site
+    type; a false rule pushed by colluders of one site type can only reach
+    clients of that type. Free-text lines are kept.
+    """
+    def key(line):
+        item, cond = parse_item(line), parse_cond_item(line)
+        if item and item[1] == ALL:
+            return (item[0], item[2], None)
+        if cond and cond[1] == ALL:
+            return (cond[0], cond[3], cond[2])
+        return None
+    types: dict[tuple, set[str]] = {}
+    for idx, lines in uploads.items():
+        for line in lines:
+            k = key(line)
+            if k:
+                types.setdefault(k, set()).add(client_sites[idx])
+    out = {}
+    for idx, lines in uploads.items():
+        new = []
+        for line in lines:
+            k = key(line)
+            if k and len(types[k]) == 1:
+                code, proc, cond = k
+                line = format_item(code, client_sites[idx], proc, cond)
+            new.append(line)
+        out[idx] = new
+    return out
+
+
+def scope_check(library: list[str], reports: dict[int, list[str]],
+                client_sites: dict[int, str], site: str,
+                single_type: bool = True) -> list[str]:
+    """Scope check of one recipient's library, after the merge. No model call.
+
+    The merge model may restate a rule for all sites even when its reports
+    came from one site type, and clients apply a rule written for another
+    site type when nothing else covers the code. So, for a recipient of site
+    type `site`:
+      - a rule for another site type is dropped;
+      - if single_type, a rule for all sites whose (code, procedure,
+        condition) is reported only by clients of one other site type is
+        dropped too (this also drops true general rules known to one site
+        type only);
+    everything else, including free text, is kept.
+    """
+    def parsed(line):
+        item, cond = parse_item(line), parse_cond_item(line)
+        if item:
+            return item[0], item[1], item[2], None
+        if cond:
+            return cond[0], cond[1], cond[3], cond[2]
+        return None
+    backers: dict[tuple, set[str]] = {}
+    for idx, lines in reports.items():
+        for line in lines:
+            p = parsed(line)
+            if p:
+                backers.setdefault((p[0], p[2], p[3]), set()).add(client_sites[idx])
+    out = []
+    for line in library:
+        p = parsed(line)
+        if p:
+            code, scope, proc, cond = p
+            if scope not in (ALL, site):
+                continue
+            types = backers.get((code, proc, cond), set())
+            if single_type and scope == ALL and len(types) == 1 and site not in types:
+                continue
+        out.append(line)
+    return out
+
+
 def corroborate(library: list[str], uploads: dict[int, list[str]],
                 client_sites: dict[int, str], q: int) -> tuple[list[str], list[str]]:
     """Server-side support threshold, applied after the merge. No model call.

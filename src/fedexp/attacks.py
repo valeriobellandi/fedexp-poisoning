@@ -15,17 +15,33 @@ from .world import Client, World
 
 def apply_a1(rng: random.Random, world: World, clients: list[Client],
              uploads: dict[int, list[str]], malicious: list[int],
-             n_targets: int, claim_scope: str) -> list[dict]:
+             n_targets: int, claim_scope: str,
+             targeting: str = "random") -> list[dict]:
     """Rewrite the malicious uploads in place and return the injected items.
 
     The attacker keeps its honest rules for the other codes, so the upload
     looks ordinary. claim_scope is "global" (the rule is claimed for all
     sites) or "site" (claimed for the attacker's own site type).
     All malicious clients push the same poison: this is plain collusion.
+
+    targeting is "random" (codes drawn uniformly) or "uncovered": an oracle
+    attacker that knows which codes the honest clients of its own site type
+    have seen and picks those that the fewest of them know, so that its false
+    rules meet as few contradictions as possible (ties: fewest honest clients
+    overall, then at random). This is the worst case for the dispute defence.
     """
     honest = [c for c in clients if c.idx not in malicious]
     attacker_sites = {clients[idx].site for idx in malicious}
-    targets = sorted(rng.sample(world.codes, n_targets))
+    if targeting == "random":
+        targets = sorted(rng.sample(world.codes, n_targets))
+    elif targeting == "uncovered":
+        tie = {c: rng.random() for c in world.codes}
+        rank = sorted(world.codes, key=lambda c: (
+            sum(c in h.train_codes for h in honest if h.site in attacker_sites),
+            sum(c in h.train_codes for h in honest), tie[c]))
+        targets = sorted(rank[:n_targets])
+    else:
+        raise ValueError(f"unknown targeting {targeting}")
     poisons = []
     for code in targets:
         legit = {world.global_rule[code]} | {

@@ -496,3 +496,45 @@ def test_attack_once_counts_false_rules_on_unknown_codes():
     # Flooding is always noticed by the honest coastal client, which is then protected.
     assert tally.mean((2, "same", "protected")) == 1.0
     assert tally.mean(((2, "exclude"), "same", "false")) == 0.0
+
+
+def test_oracle_targets_meet_fewer_contradictions():
+    import yaml
+    from pathlib import Path
+    conf = Path(__file__).resolve().parents[1] / "configs"
+    rnd, orc = [], []
+    for seed in range(5):
+        for name, out in (("trustfb6_a1_f2", rnd), ("trustfb6_a1_f2_oracle", orc)):
+            cfg = yaml.safe_load((conf / f"{name}.yaml").read_text())
+            cfg["llm"] = {"backend": "mock"}
+            res = run_once(cfg, seed, MockLLM())
+            out.append((sum(p["same_site_support"] for p in res["raw"]["poisons"]),
+                        res["attack"]["asr"]))
+    assert sum(s for s, _ in orc) < sum(s for s, _ in rnd)
+    assert sum(a for _, a in orc) > sum(a for _, a in rnd)
+
+
+def test_rescope_keeps_single_site_claims_for_that_site():
+    from fedexp.protocol import rescope
+    sites = {0: "coastal", 1: "coastal", 2: "mountain"}
+    up = {0: [format_item("K01", ALL, "P1"), format_item("K02", ALL, "P2")],
+          1: [format_item("K01", ALL, "P1"), "free text"],
+          2: [format_item("K02", ALL, "P2"), format_item("K03", ALL, "P3", "during a storm")]}
+    out = rescope(up, sites)
+    assert out[0] == [format_item("K01", "coastal", "P1"), format_item("K02", ALL, "P2")]
+    assert out[1] == [format_item("K01", "coastal", "P1"), "free text"]
+    assert out[2] == [format_item("K02", ALL, "P2"),
+                      format_item("K03", "mountain", "P3", "during a storm")]
+
+
+def test_scope_check_drops_rules_of_other_site_types():
+    from fedexp.protocol import scope_check
+    sites = {0: "coastal", 1: "coastal", 2: "mountain", 3: "urban"}
+    reports = {0: [format_item("K01", ALL, "P1")], 1: [format_item("K01", ALL, "P1")],
+               2: [format_item("K02", ALL, "P2")], 3: [format_item("K02", ALL, "P2")]}
+    lib = [format_item("K01", ALL, "P1"), format_item("K02", ALL, "P2"),
+           format_item("K03", "coastal", "P3"), format_item("K04", "mountain", "P4"), "free text"]
+    assert scope_check(lib, reports, sites, "mountain", single_type=False) == \
+        [lib[0], lib[1], lib[3], lib[4]]
+    assert scope_check(lib, reports, sites, "mountain") == [lib[1], lib[3], lib[4]]
+    assert scope_check(lib, reports, sites, "coastal") == [lib[0], lib[1], lib[2], lib[4]]

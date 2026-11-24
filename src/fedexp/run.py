@@ -17,7 +17,7 @@ import yaml
 from . import metrics
 from .attacks import apply_a1, apply_a2, apply_a3
 from .llm import make_llm
-from .protocol import (COND_SUFFIX, aggregate, corroborate, disputes, distil_all,
+from .protocol import (COND_SUFFIX, aggregate, corroborate, disputes, distil_all, rescope, scope_check,
                        generalise, recipient_uploads, solve_all)
 from .world import make_clients, make_world
 
@@ -45,6 +45,8 @@ def build_views(cfg: dict, seed: int, llm, clients, benign, uploads: dict[int, l
     if report_order != "shuffled":
         order_seed = None
     client_sites = {c.idx: c.site for c in clients}
+    if scfg.get("rescope"):
+        uploads = rescope(uploads, client_sites)
 
     # Optional defence before the merge: one library per recipient, built
     # without the reports that recipient has a reason to distrust. Libraries
@@ -84,6 +86,22 @@ def build_views(cfg: dict, seed: int, llm, clients, benign, uploads: dict[int, l
             final[key], removed = merged[key], []
         removed_counts.append(len(removed))
     views = {c.idx: final[key_of[c.idx]] for c in benign}
+    merge_key = key_of
+    scope_filter = scfg.get("scope_filter")
+    if scope_filter not in (None, False, "scoped", "single_type"):
+        raise ValueError(f"unknown scope_filter: {scope_filter}")
+    if scope_filter:
+        # One library per (merged library, site type of the recipient).
+        site_key, site_final = {}, {}
+        for c in benign:
+            k = f"{key_of[c.idx]}|{c.site}"
+            if k not in site_final:
+                site_final[k] = scope_check(final[key_of[c.idx]], kept_for[c.idx],
+                                            client_sites, c.site,
+                                            single_type=scope_filter == "single_type")
+            site_key[c.idx] = k
+        key_of, final = site_key, site_final
+        views = {c.idx: final[key_of[c.idx]] for c in benign}
 
     n_up = n_lines(uploads)
     dropped = {c.idx: n_up - n_lines(kept_for[c.idx]) for c in benign}
@@ -92,7 +110,7 @@ def build_views(cfg: dict, seed: int, llm, clients, benign, uploads: dict[int, l
     return {"views": views, "kept_for": kept_for, "key_of": key_of, "final": final,
             "merged": merged, "dropped": dropped, "removed_counts": removed_counts,
             "pairs": pairs, "library": views[main_idx],
-            "merged_library": merged[key_of[main_idx]]}
+            "merged_library": merged[merge_key[main_idx]]}
 
 
 def n_lines(reports: dict[int, list[str]]) -> int:
@@ -133,7 +151,8 @@ def run_once(cfg: dict, seed: int, llm) -> dict:
     poisons = []
     if acfg["kind"] == "a1":
         poisons = apply_a1(rng, world, clients, uploads, malicious,
-                           acfg["n_targets"], acfg["claim_scope"])
+                           acfg["n_targets"], acfg["claim_scope"],
+                           acfg.get("targeting", "random"))
     elif acfg["kind"] == "a2":
         poisons = apply_a2(rng, world, clients, uploads, malicious, acfg["n_targets"])
     elif acfg["kind"] == "a3":

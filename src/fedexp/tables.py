@@ -103,7 +103,9 @@ def main() -> None:
     all_benign = {}
     for p in folder.glob("*__hf__seed*.json"):
         r = json.loads(p.read_text())
-        if "attack" not in r and "world" in r["config"]:  # synthetic runs only
+        srv = r["config"].get("server", {})
+        if ("attack" not in r and "world" in r["config"]  # synthetic runs only
+                and not srv.get("rescope") and not srv.get("scope_filter")):
             all_benign[_baseline_key(r)] = r
 
     def attack_row(label, name):
@@ -241,6 +243,28 @@ def main() -> None:
           ["Sharing", "Leak, no attack", "Leak, A3", "Paired difference",
            "Accuracy", "Coastal clients"], rows, "lccccc")
 
+    # --- Adaptive targeting and the server-side scope check ----------------
+    rows = []
+    for label, ben, rnd, orc, a3 in [
+            ("no defence", "shuf6_benign", "shuf6_a1_f2", "shuf6_a1_f2_oracle", "a3gen_f2"),
+            ("disputes", "shuf6_benign", "trustfb6_a1_f2", "trustfb6_a1_f2_oracle", "a3gen_trustfb_f2"),
+            ("+ rescoping before the merge", "trustfbrs6_benign", "trustfbrs6_a1_f2",
+             "trustfbrs6_a1_f2_oracle", None),
+            ("+ scope filter, other types' rules", "trustfbsp6_benign", "trustfbsp6_a1_f2",
+             "trustfbsp6_a1_f2_oracle", "a3gen_trustfbsp_f2"),
+            ("+ scope filter, single-type rules", "trustfbsc6_benign", "trustfbsc6_a1_f2",
+             "trustfbsc6_a1_f2_oracle", "a3gen_trustfbsc_f2")]:
+        b, r, o = load(folder, ben), load(folder, rnd), load(folder, orc)
+        rows.append([label, ms(col(b, "acc_fed")),
+                     ms([adoption(x) for x in r]), ms(col(r, "acc_fed")),
+                     ms(col(o, "asr_same_site", True)), ms(col(o, "asr_other_site", True)),
+                     ms(col(o, "acc_fed")),
+                     ms([leak(x) for x in load(folder, a3)]) if a3 else "--"])
+    write(out / "oracle.tex",
+          ["Server", "Acc.\\ no attack", "Adopt.\\ random", "Acc.\\ random",
+           "Adopt.\\ oracle, same", "Adopt.\\ oracle, other", "Acc.\\ oracle", "A3 leak"],
+          rows, "lccccccc")
+
     # --- Multiple rounds ------------------------------------------------------
     rows = []
     for label, name in [("no attack", "mr_benign"),
@@ -270,7 +294,11 @@ def main() -> None:
                               ("disputes, no evidence filter, no attack", "heart_plain_benign", None),
                               ("disputes, no evidence filter, attack", "heart_plain_a1", "heart_plain_benign"),
                               ("disputes on confident claims, no attack", "heart_ev_benign", None),
-                              ("disputes on confident claims, attack", "heart_ev_a1", "heart_ev_benign")]:
+                              ("disputes on confident claims, attack", "heart_ev_a1", "heart_ev_benign"),
+                              ("\\quad attacker claims weak evidence", "heart_evweak_a1", "heart_ev_benign"),
+                              ("+ evidence threshold for the library, no attack", "heart_evlib_benign", None),
+                              ("+ evidence threshold for the library, attack", "heart_evlib_a1", "heart_evlib_benign"),
+                              ("\\quad attacker claims weak evidence", "heart_evlibweak_a1", "heart_evlib_benign")]:
         runs = load(folder, name)
         mal = {1, 2}
         honest_pairs = sum(1 for r in runs for p in r["disputes"] if not set(p) & mal
