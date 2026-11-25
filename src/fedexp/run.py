@@ -229,6 +229,29 @@ def run_once(cfg: dict, seed: int, llm) -> dict:
     return result
 
 
+def environment(llm) -> dict:
+    """Versions of the software and of the model weights behind a run."""
+    import platform
+    from importlib import metadata
+    env = {"python": platform.python_version()}
+    for pkg in ("torch", "transformers", "accelerate", "bitsandbytes"):
+        try:
+            env[pkg] = metadata.version(pkg)
+        except metadata.PackageNotFoundError:
+            pass
+    model = getattr(llm, "model", None)
+    if model is not None:
+        env["model_revision"] = getattr(model.config, "_commit_hash", None)
+        env["dtype"] = str(getattr(model, "dtype", ""))
+    try:
+        import torch
+        if torch.cuda.is_available():
+            env["gpus"] = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+    except ImportError:
+        pass
+    return env
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True, nargs="+",
@@ -255,6 +278,7 @@ def main() -> None:
 
         for seed in args.seeds:
             res = run_once(cfg, seed, loaded[key])
+            res["env"] = environment(loaded[key])
             path = out_dir / f"{name}__{backend}__seed{seed}.json"
             path.write_text(json.dumps(res, indent=2))
             atk = res.get("attack", {})
